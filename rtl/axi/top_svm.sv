@@ -110,50 +110,68 @@ class Checker;
     int errors = 0;
     int passes = 0;
     
-    // Instantiate our custom register model
-    sv_reg_map reg_model;
+    // The "Golden Reference Model" of our registers
+    bit [7:0] ref_reg [0:15];
 
     function new(mailbox #(axi_item) drv2chk);
         this.drv2chk = drv2chk;
-        this.reg_model = new(); // Build the register map
+        for (int i = 0; i < 16; i++) ref_reg[i] = 8'h00; // Power-on state
     endfunction
 
     task run();
         axi_item item;
         forever begin
-            drv2chk.get(item);
+            drv2chk.get(item); // Wait for completed transaction from Driver
             check_transaction(item);
         end
     endtask
 
     function void check_transaction(axi_item item);
-        sv_reg target_reg;
         bit [1:0] exp_resp;
         bit [7:0] exp_data;
         bit       match = 1;
 
-        // 1. Look up the register being accessed
-        target_reg = reg_model.get_reg_by_addr(item.addr);
-        if (target_reg == null) return; // Skip if invalid address
-
-        // 2. Ask the register model to predict the outcome
-        if (item.rnw == 0) begin
-            // WRITE
-            exp_resp = target_reg.predict_write(item.data, item.prot[0]);
+        // --- Determine Expected Behavior based on the Specification ---
+        if (item.rnw == 0) begin // WRITE
+            if (item.reg_idx <= 7) begin
+                exp_resp = 2'b00; ref_reg[item.reg_idx] = item.data; // RW: Update model
+            end else if (item.reg_idx <= 11) begin
+                exp_resp = 2'b00; // RO: Silent ignore, response OKAY
+            end else begin
+                if (item.prot[0]) begin
+                    exp_resp = 2'b00; ref_reg[item.reg_idx] = item.data; // Privileged RW: Update
+                end else begin
+                    exp_resp = 2'b10; // Privileged RW blocked: SLVERR
+                end
+            end
+            
+            // Check write results
             if (item.resp !== exp_resp) match = 0;
-        end else begin
-            // READ
-            exp_resp = target_reg.predict_read(exp_data, item.prot[0]);
+            
+        end else begin // READ
+            if (item.reg_idx <= 7) begin
+                exp_resp = 2'b00; exp_data = ref_reg[item.reg_idx];
+            end else if (item.reg_idx <= 11) begin
+                exp_resp = 2'b00; exp_data = 8'hAA; // RO status dummy data
+            end else begin
+                if (item.prot[0]) begin
+                    exp_resp = 2'b00; exp_data = ref_reg[item.reg_idx]; // Privileged
+                end else begin
+                    exp_resp = 2'b10; exp_data = 8'h00; // Blocked: SLVERR, Data zeroed
+                end
+            end
+            
+            // Check read results
             if (item.resp !== exp_resp || item.rdata !== exp_data) match = 0;
         end
 
-        // 3. Print Results
+        // --- Print Status ---
         if (match) begin
             passes++;
-            item.print($sformatf("PASS (%s)", target_reg.name));
+            item.print("PASS");
         end else begin
             errors++;
-            item.print($sformatf("FAIL (%s)", target_reg.name));
+            item.print("FAIL");
             if (item.rnw == 1)
                 $display("      -> Expected Data: %h, Expected Resp: %b", exp_data, exp_resp);
             else
