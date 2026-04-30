@@ -5,7 +5,7 @@ all : clean comp run
 
 clean:
 	echo "\n\n\n Cleaning ... \n\n\n"
-	rm -rf simdir *.log *.vcd *.hex simresult
+	rm -rf simdir *.log *.vcd *.hex simresult regblock
 
 blockname:=axi
 
@@ -29,3 +29,14 @@ run:
 wave:
 	echo "\n\n\n Openining Waves ... \n\n\n"
 	gtkwave ./simresult/sim.vcd &
+
+reg:
+	mkdir -p regblock
+	# convert to systemRDL from IPXACT
+	peakrdl systemrdl ./rtl/axi/axi_lite_reg_ipxact.xml -o regblock/axi_lite_reg_rdl.rdl
+	# generate uvm register model
+	peakrdl uvm regblock/axi_lite_reg_rdl.rdl -o regblock/axi_lite_reg_model.sv
+	# generate RTL
+	peakrdl regblock regblock/axi_lite_reg_rdl.rdl -o regblock/ --cpuif axi4-lite
+	# generate gtml docs
+	peakrdl html regblock/axi_lite_reg_rdl.rdl -o regblock/doc

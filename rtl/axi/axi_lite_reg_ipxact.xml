@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spirit:component xmlns:spirit="http://www.accellera.org/XMLSchema/SPIRIT/1685-2009" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <spirit:vendor>my_company.com</spirit:vendor>
+    <spirit:library>reg_blocks</spirit:library>
+    <spirit:name>axi_lite_reg</spirit:name>
+    <spirit:version>1.0</spirit:version>
+    <spirit:description>16x8-bit AXI4-Lite Register Map with Permissions</spirit:description>
+
+    <!-- Define the Memory Map -->
+    <spirit:memoryMaps>
+        <spirit:memoryMap>
+            <spirit:name>s_axi_map</spirit:name>
+            <spirit:addressBlock>
+                <spirit:name>reg_bank</spirit:name>
+                <spirit:baseAddress>0x00000000</spirit:baseAddress>
+                <spirit:range>0x00000040</spirit:range> <!-- 64 Bytes (16 words * 4) -->
+                <spirit:width>32</spirit:width>
+
+                <!-- ========================================== -->
+                <!-- Zone 1: Registers 0 to 7 (Standard Read/Write) -->
+                <!-- ========================================== -->
+                <!-- Note: Using spirit:dim to create an array of 8 identical registers -->
+                <spirit:register>
+                    <spirit:name>RW_REG</spirit:name>
+                    <spirit:description>Standard Read/Write Registers</spirit:description>
+                    <spirit:dim>8</spirit:dim>
+                    <spirit:addressOffset>0x00</spirit:addressOffset>
+                    <spirit:size>32</spirit:size>
+                    <spirit:access>read-write</spirit:access>
+                    <spirit:field>
+                        <spirit:name>DATA</spirit:name>
+                        <spirit:bitOffset>0</spirit:bitOffset>
+                        <spirit:bitWidth>8</spirit:bitWidth>
+                        <spirit:access>read-write</spirit:access>
+                    </spirit:field>
+                    <!-- Optional padding field for documentation clarity -->
+                    <spirit:field>
+                        <spirit:name>RESERVED</spirit:name>
+                        <spirit:bitOffset>8</spirit:bitOffset>
+                        <spirit:bitWidth>24</spirit:bitWidth>
+                        <spirit:access>read-only</spirit:access>
+                    </spirit:field>
+                </spirit:register>
+
+                <!-- ========================================== -->
+                <!-- Zone 2: Registers 8 to 11 (Read-Only)      -->
+                <!-- ========================================== -->
+                <!-- Starts at offset 0x20 (8 * 4 bytes) -->
+                <spirit:register>
+                    <spirit:name>RO_STATUS_REG</spirit:name>
+                    <spirit:description>Read-Only Status Registers</spirit:description>
+                    <spirit:dim>4</spirit:dim>
+                    <spirit:addressOffset>0x20</spirit:addressOffset>
+                    <spirit:size>32</spirit:size>
+                    <spirit:access>read-only</spirit:access>
+                    <spirit:field>
+                        <spirit:name>STATUS</spirit:name>
+                        <spirit:bitOffset>0</spirit:bitOffset>
+                        <spirit:bitWidth>8</spirit:bitWidth>
+                        <spirit:access>read-only</spirit:access>
+                    </spirit:field>
+                </spirit:register>
+
+                <!-- ========================================== -->
+                <!-- Zone 3: Registers 12 to 15 (Privileged RW) -->
+                <!-- ========================================== -->
+                <!-- Starts at offset 0x30 (12 * 4 bytes) -->
+                <spirit:register>
+                    <spirit:name>PRIV_CTRL_REG</spirit:name>
+                    <spirit:description>Privileged Configuration Registers (Requires AWPROT/ARPROT[0]=1)</spirit:description>
+                    <spirit:dim>4</spirit:dim>
+                    <spirit:addressOffset>0x30</spirit:addressOffset>
+                    <spirit:size>32</spirit:size>
+                    <spirit:access>read-write</spirit:access>
+                    <spirit:parameters>
+                        <spirit:parameter>
+                            <spirit:name>requires_privilege</spirit:name>
+                            <spirit:value>true</spirit:value>
+                        </spirit:parameter>
+                    </spirit:parameters>
+                    <spirit:field>
+                        <spirit:name>CTRL</spirit:name>
+                        <spirit:bitOffset>0</spirit:bitOffset>
+                        <spirit:bitWidth>8</spirit:bitWidth>
+                        <spirit:access>read-write</spirit:access>
+                    </spirit:field>
+                </spirit:register>
+
+            </spirit:addressBlock>
+        </spirit:memoryMap>
+    </spirit:memoryMaps>
+
+    <!-- Define the physical AXI Bus Interface -->
+    <spirit:busInterfaces>
+        <spirit:busInterface>
+            <spirit:name>s_axi</spirit:name>
+            <spirit:busType spirit:vendor="amba.com" spirit:library="AMBA4" spirit:name="AXI4LE" spirit:version="r0p0"/>
+            <spirit:abstractionType spirit:vendor="amba.com" spirit:library="AMBA4" spirit:name="AXI4LE_rtl" spirit:version="r0p0"/>
+            <spirit:slave>
+                <spirit:memoryMapRef spirit:memoryMapRef="s_axi_map"/>
+            </spirit:slave>
+            <spirit:portMaps>
+                <!-- Address Write -->
+                <spirit:portMap><spirit:logicalPort><spirit:name>AWADDR</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>awaddr</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>AWPROT</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>awprot</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>AWVALID</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>awvalid</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>AWREADY</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>awready</spirit:name></spirit:physicalPort></spirit:portMap>
+                <!-- Data Write -->
+                <spirit:portMap><spirit:logicalPort><spirit:name>WDATA</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>wdata</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>WSTRB</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>wstrb</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>WVALID</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>wvalid</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>WREADY</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>wready</spirit:name></spirit:physicalPort></spirit:portMap>
+                <!-- Write Response -->
+                <spirit:portMap><spirit:logicalPort><spirit:name>BRESP</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>bresp</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>BVALID</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>bvalid</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>BREADY</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>bready</spirit:name></spirit:physicalPort></spirit:portMap>
+                <!-- Address Read -->
+                <spirit:portMap><spirit:logicalPort><spirit:name>ARADDR</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>araddr</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>ARPROT</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>arprot</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>ARVALID</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>arvalid</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>ARREADY</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>arready</spirit:name></spirit:physicalPort></spirit:portMap>
+                <!-- Data Read -->
+                <spirit:portMap><spirit:logicalPort><spirit:name>RDATA</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>rdata</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>RRESP</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>rresp</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>RVALID</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>rvalid</spirit:name></spirit:physicalPort></spirit:portMap>
+                <spirit:portMap><spirit:logicalPort><spirit:name>RREADY</spirit:name></spirit:logicalPort><spirit:physicalPort><spirit:name>rready</spirit:name></spirit:physicalPort></spirit:portMap>
+            </spirit:portMaps>
+        </spirit:busInterface>
+    </spirit:busInterfaces>
+</spirit:component>
