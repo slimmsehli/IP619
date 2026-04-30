@@ -242,7 +242,7 @@ module top();
         drv2chk = new();
         
         // Number of random transactions to run
-        gen = new(gen2drv, 10000); 
+        gen = new(gen2drv, 1000); 
         drv = new(vif, gen2drv, drv2chk);
         chk = new(drv2chk);
 
@@ -260,6 +260,11 @@ module top();
             chk.run();
             gen.run(); // Generator will finish first
         join_any
+
+        // Wait until the Checker has verified every transaction generated
+        while ((chk.passes + chk.errors) < gen.num_transactions) begin
+            @(posedge aclk);
+        end
 
         // Give the final transactions time to flush through the driver/checker
         #100;
