@@ -24,7 +24,7 @@ module top();
     string testname;
     axi_test_base test;
     axi_test_random test_random_i;
-    axi_test_direct test_direct_i;
+    axi_test_b2b_readwrite test_b2b_readwrite_i;
 
     initial begin
         // get the testbane from the simulation command line
@@ -37,9 +37,9 @@ module top();
                 test_random_i = new(vif, 1000);
                 test = test_random_i;
             end
-            "axi_test_direct": begin
-                test_direct_i = new(vif, 1000);
-                test = test_direct_i;
+            "axi_test_b2b_readwrite": begin
+                test_b2b_readwrite_i = new(vif, 1000);
+                test = test_b2b_readwrite_i;
             end
             default: begin
                 $fatal("Invalid test name: %s", testname);

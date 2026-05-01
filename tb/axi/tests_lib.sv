@@ -21,7 +21,7 @@ endclass : Generator_random
 // ============================================================================
 //  axi Direct Generator
 // ============================================================================
-class Generator_direct extends Generator_base;
+class Generator_b2b_readwrite extends Generator_base;
 
     function new(mailbox #(axi_item) gen2drv, int num_transactions);
         super.new(gen2drv, num_transactions);
@@ -44,7 +44,7 @@ class Generator_direct extends Generator_base;
             gen2drv.put(item);  
         end
     endtask
-endclass : Generator_direct
+endclass : Generator_b2b_readwrite
 
 // ============================================================================
 //  axi random test
@@ -63,11 +63,11 @@ endclass : axi_test_random
 //  axi direct test
 // ============================================================================
 
-class axi_test_direct extends axi_test_base;
-    Generator_direct temp_gen;
+class axi_test_b2b_readwrite extends axi_test_base;
+    Generator_b2b_readwrite temp_gen;
     function new(virtual axi_vif vif, int num_transactions);
-        super.new("axi_test_direct", vif, num_transactions);
+        super.new("axi_test_b2b_readwrite", vif, num_transactions);
         this.temp_gen = new(this.gen2drv, this.num_transactions);
         this.gen = this.temp_gen;
     endfunction
-endclass : axi_test_direct
+endclass : axi_test_b2b_readwrite
