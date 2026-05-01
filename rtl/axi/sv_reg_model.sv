@@ -5,12 +5,12 @@ class sv_reg;
     string       name;
     bit [5:0]    addr;
     reg_access_e access;
-    bit [7:0]    reset_val;
+    bit [DATA_WIDTH-1:0]    reset_val;
     
     // The "Golden" mirrored value
-    bit [7:0]    mirrored_val; 
+    bit [DATA_WIDTH-1:0]    mirrored_val; 
 
-    function new(string n, bit [5:0] a, reg_access_e acc, bit [7:0] rst = 8'h00);
+    function new(string n, bit [5:0] a, reg_access_e acc, bit [DATA_WIDTH-1:0] rst = 32'h00000000);
         this.name = n;
         this.addr = a;
         this.access = acc;
@@ -19,7 +19,7 @@ class sv_reg;
     endfunction
 
     // Predicts the DUT's response and updates the mirror if a write is valid
-    function bit [1:0] predict_write(bit [7:0] wdata, bit is_priv);
+    function bit [1:0] predict_write(bit [DATA_WIDTH-1:0] wdata, bit is_priv);
         if (access == REG_RW) begin
             mirrored_val = wdata;
             return 2'b00; // OKAY
@@ -38,7 +38,7 @@ class sv_reg;
     endfunction
 
     // Predicts the DUT's read data and response
-    function bit [1:0] predict_read(output bit [7:0] rdata, input bit is_priv);
+    function bit [1:0] predict_read(output bit [DATA_WIDTH-1:0] rdata, input bit is_priv);
         if (access == REG_RW || access == REG_RO) begin
             rdata = mirrored_val;
             return 2'b00; // OKAY
@@ -48,7 +48,7 @@ class sv_reg;
                 rdata = mirrored_val;
                 return 2'b00; // OKAY
             end else begin
-                rdata = 8'h00;
+                rdata = 32'h00000000;
                 return 2'b10; // SLVERR (Blocked)
             end
         end

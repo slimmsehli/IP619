@@ -65,7 +65,7 @@ module axi_lite_reg (
             bvalid <= 1'b0;
             bresp  <= RESP_OKAY;
             for (int i = 0; i < 16; i++) begin
-                slv_reg[i] <= 8'h00;
+                slv_reg[i] <= 'h00000000;
             end
         end else begin
             // Clear bvalid when accepted by master
@@ -77,7 +77,7 @@ module axi_lite_reg (
                 // Write Access Control Policy
                 if (write_idx <= 7) begin
                     // Normal Read-Write
-                    if (wstrb[0]) slv_reg[write_idx] <= wdata[7:0];
+                    if (wstrb[0]) slv_reg[write_idx] <= wdata[DATA_WIDTH-1:0];
                     bresp <= RESP_OKAY;
                 end else if (write_idx >= 8 && write_idx <= 11) begin
                     // Read-Only (silently ignore write)
@@ -85,7 +85,7 @@ module axi_lite_reg (
                 end else begin
                     // Privileged Read-Write
                     if (awprot[0]) begin // If privileged
-                        if (wstrb[0]) slv_reg[write_idx] <= wdata[7:0];
+                        if (wstrb[0]) slv_reg[write_idx] <= wdata[DATA_WIDTH-1:0];
                         bresp <= RESP_OKAY;
                     end else begin
                         // Block write and return SLVERR
@@ -112,7 +112,7 @@ module axi_lite_reg (
                 // Read Access Control Policy
                 if (read_idx <= 7) begin
                     // Normal Read
-                    rdata <= {24'h0, slv_reg[read_idx]};
+                    rdata <= slv_reg[read_idx];
                     rresp <= RESP_OKAY;
                 end else if (read_idx >= 8 && read_idx <= 11) begin
                     // Read-Only Status Regs (Return dummy 8'hAA)
@@ -121,7 +121,7 @@ module axi_lite_reg (
                 end else begin
                     // Privileged Read
                     if (arprot[0]) begin
-                        rdata <= {24'h0, slv_reg[read_idx]};
+                        rdata <= slv_reg[read_idx];
                         rresp <= RESP_OKAY;
                     end else begin
                         // Block read, return 0 and SLVERR
