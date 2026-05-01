@@ -14,6 +14,7 @@ comp:
 	mkdir -p simresult
 	verilator --binary -j 0 --trace --timing -Wall \
 	-F ./rtl/${blockname}/filelist.f -I./rtl/${blockname} \
+	-F ./tb/${blockname}/filelist.f -I./tb/${blockname} \
 	--top top --Mdir simresult -o simv \
 	-Wno-UNDRIVEN -Wno-UNUSEDSIGNAL -Wno-WIDTHEXPAND -Wno-IMPLICIT \
 	-Wno-PINCONNECTEMPTY -Wno-DECLFILENAME -Wno-BLKSEQ -Wno-INITIALDLY \
@@ -23,7 +24,8 @@ comp:
 run:
 	mkdir -p simresult
 	echo "\n\n\n Simulation ... \n\n\n"
-	./simresult/simv 
+	./simresult/simv +TESTNAME=axi_test_random |& tee ./simresult/sim_random.log 
+	./simresult/simv +TESTNAME=axi_test_direct |& tee ./simresult/sim_direct.log 
 	#+TEST=$(TEST) |& tee ./simresult/sim.log 
 
 wave:

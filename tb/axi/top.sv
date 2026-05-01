@@ -11,7 +11,7 @@ interface axi_vif(input logic aclk, input logic aresetn);
     logic [1:0]  bresp;  logic bvalid;  logic bready;
     logic [5:0]  araddr; logic [2:0]  arprot; logic arvalid; logic arready;
     logic [31:0] rdata;  logic [1:0]  rresp;  logic rvalid;  logic rready;
-endinterface
+endinterface : axi_vif
 
 // ============================================================================
 // 2. Transaction Item
@@ -42,7 +42,7 @@ class axi_item;
         $display("[%s] %s Reg %0d (Addr %0h) | Data: %h | Prot: %b | RData: %h | Resp: %b", 
                  tag, rnw ? "READ " : "WRITE", reg_idx, addr, data, prot, rdata, resp);
     endfunction
-endclass
+endclass : axi_item
 
 // ============================================================================
 // 3. Driver
@@ -102,7 +102,7 @@ class Driver;
         @(posedge vif.aclk);
         vif.rready <= 1'b0;
     endtask
-endclass
+endclass : Driver
 
 // ============================================================================
 // 4. Scoreboard / Checker
@@ -131,7 +131,7 @@ class Checker;
     function void check_transaction(axi_item item);
         sv_reg target_reg;
         bit [1:0] exp_resp;
-        bit [7:0] exp_data;
+        bit [DATA_WIDTH-1:0] exp_data;
         bit       match = 1;
 
         // 1. Look up the register being accessed
@@ -162,18 +162,29 @@ class Checker;
                 $display("      -> Expected Resp: %b", exp_resp);
         end
     endfunction
-endclass
+endclass :  Checker
 
 // ============================================================================
 // 5. Generator
 // ============================================================================
-class Generator;
+class Generator_base;
     mailbox #(axi_item) gen2drv;
     int num_transactions;
 
     function new(mailbox #(axi_item) gen2drv, int num_transactions);
         this.gen2drv = gen2drv;
         this.num_transactions = num_transactions;
+    endfunction
+
+    virtual task run(); // tihs will forece the derived class to implement the run task
+    endtask
+
+endclass : Generator_base
+
+class Generator_random extends Generator_base;
+
+    function new(mailbox #(axi_item) gen2drv, int num_transactions);
+        super.new(gen2drv, num_transactions);
     endfunction
 
     task run();
@@ -184,23 +195,49 @@ class Generator;
             gen2drv.put(item);
         end
     endtask
-endclass
+endclass : Generator_random
+
+class Generator_direct extends Generator_base;
+
+    function new(mailbox #(axi_item) gen2drv, int num_transactions);
+        super.new(gen2drv, num_transactions);
+    endfunction
+
+    task run();
+        axi_item item;
+        for (int i = 0; i < num_transactions; i++) begin
+            // write transaction
+            item = new();
+            item.rnw = 0; // write
+            item.reg_idx = i;
+            item.data = $urandom;
+            gen2drv.put(item);
+
+            // read transaction for the same register
+            item = new();
+            item.rnw = 1; // read
+            item.reg_idx = i;
+            gen2drv.put(item);  
+        end
+    endtask
+endclass : Generator_direct
 
 // ============================================================================
 // 6. Top Level Module
 // ============================================================================
-
-class axi_test;
+class axi_test_base;
+    string name;
     int num_transactions;
     virtual axi_vif vif;
 
-    Generator gen;
+    Generator_base gen;
     Driver    drv;
     Checker   chk;
     mailbox #(axi_item) gen2drv;
     mailbox #(axi_item) drv2chk;
-
-    function new(virtual axi_vif vif, int num_transactions);
+    
+    function new(string name = "axi_test_base", virtual axi_vif vif, int num_transactions);
+        this.name = name;
         this.vif = vif;
         this.num_transactions = num_transactions;
         this.gen2drv = new();
@@ -219,7 +256,7 @@ class axi_test;
         #20 vif.aresetn = 1;
         #20;
         $display("========================================");
-        $display("  STARTING UVM-LITE RANDOMIZED TEST");
+        $display("  STARTING UVM-LITE : %s ", this.name);
         $display("========================================");
 
         // Start threads
@@ -238,7 +275,7 @@ class axi_test;
         #100;
 
         $display("========================================");
-        $display("  TEST COMPLETE");
+        $display("  TEST COMPLETE : %s", this.name);
         $display("  Transactions : %0d", chk.passes + chk.errors);
         $display("  Passes       : %0d", chk.passes);
         $display("  Errors       : %0d", chk.errors);
@@ -247,7 +284,27 @@ class axi_test;
 
         
     endtask
-endclass
+
+endclass : axi_test_base
+
+
+class axi_test_random extends axi_test_base;
+    Generator_random temp_gen;
+    function new(virtual axi_vif vif, int num_transactions);
+        super.new("axi_test_random", vif, num_transactions);
+        this.temp_gen = new(this.gen2drv, this.num_transactions);
+        this.gen = this.temp_gen;
+    endfunction
+endclass : axi_test_random
+
+class axi_test_direct extends axi_test_base;
+    Generator_direct temp_gen;
+    function new(virtual axi_vif vif, int num_transactions);
+        super.new("axi_test_direct", vif, num_transactions);
+        this.temp_gen = new(this.gen2drv, this.num_transactions);
+        this.gen = this.temp_gen;
+    endfunction
+endclass : axi_test_direct
 
 
 module top();
@@ -270,58 +327,31 @@ module top();
         .rdata(vif.rdata),   .rresp(vif.rresp),   .rvalid(vif.rvalid),   .rready(vif.rready)
     );
 
-    // Testbench OOP Components
-    //Generator gen;
-    //Driver    drv;
-    //Checker   chk;
-    //mailbox #(axi_item) gen2drv;
-    //mailbox #(axi_item) drv2chk;
-    axi_test test;
+    string testname;
+    axi_test_base test;
+    axi_test_random test_random_i;
+    axi_test_direct test_direct_i;
+
     initial begin
-        test = new(vif, 1000);
-        test.run();
-        // Init signals and mailboxes
-        /*aresetn = 0;
-        vif.awvalid = 0; vif.wvalid = 0; vif.bready = 0;
-        vif.arvalid = 0; vif.rready = 0;
-        
-        gen2drv = new();
-        drv2chk = new();
-        
-        // Number of random transactions to run
-        gen = new(gen2drv, 1000); 
-        drv = new(vif, gen2drv, drv2chk);
-        chk = new(drv2chk);
-
-        // Reset sequence
-        #20 aresetn = 1;
-        #20;
-
-        $display("========================================");
-        $display("  STARTING UVM-LITE RANDOMIZED TEST");
-        $display("========================================");
-
-        // Start threads
-        fork
-            drv.run();
-            chk.run();
-            gen.run(); // Generator will finish first
-        join_any
-
-        // Wait until the Checker has verified every transaction generated
-        while ((chk.passes + chk.errors) < gen.num_transactions) begin
-            @(posedge aclk);
+        // get the testbane from the simulation command line
+        if (!$value$plusargs("TESTNAME=%s", testname)) begin
+            testname = "test_random"; 
         end
 
-        // Give the final transactions time to flush through the driver/checker
-        #100;
+        case (testname)
+            "axi_test_random": begin
+                test_random_i = new(vif, 1000);
+                test = test_random_i;
+            end
+            "axi_test_direct": begin
+                test_direct_i = new(vif, 1000);
+                test = test_direct_i;
+            end
+            default: begin
+                $fatal("Invalid test name: %s", testname);
+            end
+        endcase
 
-        $display("========================================");
-        $display("  TEST COMPLETE");
-        $display("  Transactions : %0d", chk.passes + chk.errors);
-        $display("  Passes       : %0d", chk.passes);
-        $display("  Errors       : %0d", chk.errors);
-        $display("========================================");
-        $finish;*/
+        test.run();
     end
 endmodule
