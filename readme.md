@@ -1,4 +1,7 @@
 
+# this is an RTL IPs catalog
+
+
 # install python virtual env and load peakhdl
 py -m venv venv
 source venv/bin/activate

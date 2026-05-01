@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+parameter DATA_WIDTH = 32;
+
 // ============================================================================
 // 1. AXI-Lite Interface
 // ============================================================================
@@ -17,7 +19,7 @@ endinterface
 class axi_item;
     rand bit       rnw;     // 0 = Write, 1 = Read
     rand bit [3:0] reg_idx; // Register index 0 to 15
-    rand bit [7:0] data;    // Data to write (ignored on reads)
+    rand bit [DATA_WIDTH-1:0] data;    // Data to write (ignored on reads)
     rand bit [2:0] prot;    // Protection level
 
     // Computed properties
@@ -187,6 +189,67 @@ endclass
 // ============================================================================
 // 6. Top Level Module
 // ============================================================================
+
+class axi_test;
+    int num_transactions;
+    virtual axi_vif vif;
+
+    Generator gen;
+    Driver    drv;
+    Checker   chk;
+    mailbox #(axi_item) gen2drv;
+    mailbox #(axi_item) drv2chk;
+
+    function new(virtual axi_vif vif, int num_transactions);
+        this.vif = vif;
+        this.num_transactions = num_transactions;
+        this.gen2drv = new();
+        this.drv2chk = new();
+        gen = new(this.gen2drv, this.num_transactions); 
+        drv = new(this.vif, this.gen2drv, this.drv2chk);
+        chk = new(this.drv2chk);
+    endfunction
+
+    task run();
+        // initialize the interface signals
+        vif.aresetn = 0;
+        vif.awvalid = 0; vif.wvalid = 0; vif.bready = 0;
+        vif.arvalid = 0; vif.rready = 0;
+        // Reset sequence
+        #20 vif.aresetn = 1;
+        #20;
+        $display("========================================");
+        $display("  STARTING UVM-LITE RANDOMIZED TEST");
+        $display("========================================");
+
+        // Start threads
+        fork
+            drv.run();
+            chk.run();
+            gen.run(); // Generator will finish first
+        join_any
+
+        // Wait until the Checker has verified every transaction generated
+        while ((this.chk.passes + this.chk.errors) < this.gen.num_transactions) begin
+            @(posedge this.vif.aclk);
+        end
+
+        // Give the final transactions time to flush through the driver/checker
+        #100;
+
+        $display("========================================");
+        $display("  TEST COMPLETE");
+        $display("  Transactions : %0d", chk.passes + chk.errors);
+        $display("  Passes       : %0d", chk.passes);
+        $display("  Errors       : %0d", chk.errors);
+        $display("========================================");
+        $finish;
+
+        
+    endtask
+endclass
+
+
 module top();
     logic aclk = 0;
     logic aresetn;
@@ -208,15 +271,17 @@ module top();
     );
 
     // Testbench OOP Components
-    Generator gen;
-    Driver    drv;
-    Checker   chk;
-    mailbox #(axi_item) gen2drv;
-    mailbox #(axi_item) drv2chk;
-
+    //Generator gen;
+    //Driver    drv;
+    //Checker   chk;
+    //mailbox #(axi_item) gen2drv;
+    //mailbox #(axi_item) drv2chk;
+    axi_test test;
     initial begin
+        test = new(vif, 1000);
+        test.run();
         // Init signals and mailboxes
-        aresetn = 0;
+        /*aresetn = 0;
         vif.awvalid = 0; vif.wvalid = 0; vif.bready = 0;
         vif.arvalid = 0; vif.rready = 0;
         
@@ -257,6 +322,6 @@ module top();
         $display("  Passes       : %0d", chk.passes);
         $display("  Errors       : %0d", chk.errors);
         $display("========================================");
-        $finish;
+        $finish;*/
     end
 endmodule

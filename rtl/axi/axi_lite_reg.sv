@@ -33,9 +33,9 @@ module axi_lite_reg (
     output logic        rvalid,
     input  logic        rready
 );
-
+    parameter DATA_WIDTH = 32;
     // 16 Registers of 8-bit width
-    logic [7:0] slv_reg [0:15];
+    logic [DATA_WIDTH-1:0] slv_reg [0:15];
     
     logic [3:0] write_idx;
     logic [3:0] read_idx;
